@@ -22,6 +22,18 @@ dados %>%
   mutate(autor_n = str_squish(autor_n) %>% str_to_title()) %>%
   select(autor_n) %>% 
   write_csv2("data/autores_lates.csv")
+
+
+tab_desc<- function(dados, var){
+  dados %>% 
+    summarise("valor mínimo" = min({{var}}, na.rm = TRUE),
+              "mediana" = median({{var}}, na.rm = TRUE),
+              "média" = mean({{var}}, na.rm = TRUE),
+              "desvio padrão" = sd({{var}}, na.rm = TRUE),
+              "valor máximo" = max({{var}}, na.rm = TRUE))
+}
+
+
 # Autoria -----------------------------------------------------------------
 
 #autores por ano
@@ -30,23 +42,37 @@ dados %>% group_by(ano_artigo) %>%
   summarise(n_autores = mean(n_autores, na.rm = TRUE)) %>% 
   ggplot(aes(x=ano_artigo, y= n_autores))+
   geom_line(size = 1, color = "lightgrey")+
+  geom_hline(yintercept = mean(dados$n_autores, na.rm= TRUE),
+             linetype = "dashed", color = "red")+
   geom_text(aes(label = round(n_autores, 2) ), color = "#a83440")+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"),
+        axis.text.x = element_text(angle = 90))+
   scale_x_continuous(breaks = seq(2000, 2022))+
-  labs(x = "Número de Autores", y = "Ano do Artigo")
+  labs(y = "Número de Autores", x = "Ano do Artigo")
 
+dados %>% 
+  tab_desc(n_autores)
 # Artigos por ano
 dados %>% 
   janitor::tabyl(ano_artigo) %>% 
   ggplot( aes(x= ano_artigo, y= n))+
   geom_line(size = 1, color = "lightgrey")+
+  geom_hline(yintercept = mean(dados %>% 
+                                 janitor::tabyl(ano_artigo) %>% 
+                                 pull(n), na.rm= TRUE),
+             linetype = "dashed", color = "red")+
   geom_text(aes(label = n), color = "#a83440")+
   scale_x_continuous(breaks = c(2000:2022))+
   theme_bw()+
-  theme(panel.grid = element_blank())+
-  labs(x = "Número de Artigos", y = "Ano do Artigo")
-
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"),
+        axis.text.x = element_text(angle = 90))+
+  labs(y = "Número de Artigos", x = "Ano do Artigo")
+dados$ano_artigo %>% summary()
 # Análise Gênero
 
 dados %>% 
@@ -59,7 +85,10 @@ dados %>%
   geom_col(fill = "#a83440", width = .6)+
   geom_text(aes(label = round(percent, 3)*100), vjust =-.5)+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold")
+        )+
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(x = "Sexo dos Autores", 
        y = NULL)
@@ -78,7 +107,9 @@ dados %>%
   geom_col(fill = "#a83440")+
   geom_text(aes(label = round(percent, 4)*100), hjust =-.1)+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   scale_x_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(x= "%",
        y = "Universidade do Autor")
@@ -96,7 +127,9 @@ dados %>%
   geom_col(fill = "#a83440")+
   geom_text(aes(label = round(percent, 3)*100), hjust =-.1)+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   scale_x_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(x= "%",
        y = "Estado do Autor")
@@ -106,17 +139,17 @@ geobr::read_state() %>%
               separate_rows(estado_uni_autor, sep = ",") %>% 
               mutate(estado_uni_autor = str_squish(estado_uni_autor)) %>% 
               mutate(estado_uni_autor = toupper(estado_uni_autor)) %>% 
-              drop_na(estado_uni_autor) %>% 
-              filter(!estado_uni_autor %in% c("-", "")) %>% 
+              #drop_na(estado_uni_autor) %>% 
+              #filter(!estado_uni_autor %in% c("-", "")) %>% 
               janitor::tabyl(estado_uni_autor),
             by = c("abbrev_state" = "estado_uni_autor")) %>% 
-  replace_na(list(n = 0, percent = 0)) %>% 
+  #replace_na(list(n = 0, percent = 0)) %>% 
   ggplot()+
-  geom_sf(aes(fill = percent*100))+
+  geom_sf(aes(fill = percent*100), color = "lightgrey")+
   geom_sf_text(aes(label = round(percent*100, 3)), color = "black")+
   theme_void()+
   guides(fill=guide_legend(title="Percentual"))+
-  scale_fill_viridis_b()+
+  scale_fill_viridis_b(na.value = "white",)+
   labs(title = "Distribuição de Autores de Artigos sobre Gastos de Campanha e Obtenção Votos no Brasil")+
   theme(plot.title = element_text(hjust = .5))
 # Bibliografico -----------------------------------------------------------
@@ -130,10 +163,14 @@ dados %>%
   
   ggplot(aes( x= ano_artigo, y= citacoes))+
   geom_line(size = 1, color = "lightgrey")+
+  geom_hline(yintercept = mean(dados$citacoes, na.rm= TRUE),
+             linetype = "dashed", color = "red")+
   geom_text(aes(label = round(citacoes, 2)), color = "#a83440")+
   theme_bw()+
   scale_x_continuous(breaks = c(2000:2022))+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   labs(x= "Ano do Artigo", y= "Média de Citações")
   
 #Qualis Revista
@@ -141,16 +178,18 @@ dados %>%
 dados %>% 
   janitor::tabyl(estrato) %>% 
   ggplot(aes(
-    x = reorder(estrato, -n), 
-    y = n
+    x = estrato, 
+    y = percent*100
   ))+
   geom_col(fill = "#a83440")+
-  geom_text(aes(label = n), vjust = -.5)+
-  labs(x = "Qualis das Revistas",
-       y = NULL)+
+  geom_text(aes(label = round(percent, 3)*100), vjust = -.5)+
+  labs(x = "Qualis das Revistas Publicadas",
+       y = "%")+
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   theme_bw()+
-  theme(panel.grid = element_blank())
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))
 
 # Revistas
 dados %>% 
@@ -163,8 +202,10 @@ dados %>%
   geom_text(aes(label = round(percent, 4)*100), hjust = -.2)+
   scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
   theme_bw()+
-  theme(panel.grid = element_blank())+
-  labs(x = "Percentual de Artigos Publicados",
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
+  labs(x = "%",
        y = "Revista")
   
 #Abordagem Metodológica
@@ -178,14 +219,17 @@ dados %>%
   geom_text(aes(label = round(percent, 4)*100), hjust = -.2)+
   scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   labs(x = "Distribuição de Ténicas de Pesquisa Empregadas",
        y = "%")
 
 #Técnicas Utilizadas
-dados %>% 
+dados %>%
   drop_na(tec_pesquisa) %>% 
   filter(tec_pesquisa != "-") %>% 
+  mutate(tec_pesquisa = str_to_title(tec_pesquisa)) %>% 
   janitor::tabyl(tec_pesquisa) %>% 
   ggplot(aes(y = reorder(tec_pesquisa, percent),
              x = percent*100))+
@@ -193,7 +237,9 @@ dados %>%
   geom_text(aes(label = round(percent, 4)*100), hjust = -.2)+
   scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   labs(y = "Distribuição da Abordagem de Pesquisa",
        x = "%")
 #Número de técnicas de pesquisa empregadas
@@ -208,7 +254,9 @@ dados %>%
   geom_text(aes(label = round(percent, 4)*100), vjust = -.2)+
   scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   labs(x = "Número de Técnicas Empregadas na Análise",
        y = "%")
 
@@ -226,9 +274,29 @@ dados %>%
     geom_text(aes(label = round(percent, 4)*100), vjust = -.2)+
     scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
     theme_bw()+
-    theme(panel.grid = element_blank())+
+    theme(panel.grid = element_blank(),
+          axis.title = element_text(size = 11, face = "bold"),
+          axis.text = element_text(size = 11, face = "bold"))+
     labs(x = "Percentual de Ano de Eleição Análisados",
          y = "%")
+#Variável interveniente
+dados %>% 
+  mutate(var_interveniente = ifelse(
+                                    var_interveniente %in% c("-", NA_character_),
+                                    "Não Faz Uso", "Faz uso")) %>% 
+  janitor::tabyl(var_interveniente) %>% 
+  ggplot(aes(x = reorder(var_interveniente, -percent), 
+             y= percent*100))+
+  geom_col(fill = "#a83440", width = .5)+
+  geom_text(aes(label = round(percent, 4)*100), vjust = -.05)+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        #axis.text.x = element_text(angle = 90),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
+  labs(x = "Uso de Variáveis Intervenientes",
+       y = "%")
 
 # Serie temporal
 
@@ -245,7 +313,9 @@ dados %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
   theme_bw()+
   theme(panel.grid = element_blank(),
-        axis.text.x = element_text(angle = 90))+
+        axis.text.x = element_text(angle = 90),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   labs(x = "Séries Temporais Análisados",
        y = "%")+
   coord_flip()
@@ -260,7 +330,9 @@ dados %>%
     geom_text(aes(label = round(percent, 4)*100), vjust = -.2)+
     scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
     theme_bw()+
-    theme(panel.grid = element_blank())+
+    theme(panel.grid = element_blank(),
+          axis.title = element_text(size = 11, face = "bold"),
+          axis.text = element_text(size = 11, face = "bold"))+
     labs(x = "Percentual de Número de Eleições Analisados",
          y = "%")
 
@@ -279,7 +351,9 @@ dados %>%
   geom_text(aes(label = round(percent, 4)*100), vjust = -.2)+
   scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   labs(x = "Cargos Analisados",
        y = "%")
 
@@ -295,7 +369,9 @@ dados %>%
   geom_text(aes(label = round(percent, 4)*100), hjust = -.2)+
   scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   labs(x = "Distribuição de Variável Independente",
        y = "%")
 
@@ -311,11 +387,15 @@ dados %>%
   geom_text(aes(label = round(percent, 4)*100), hjust = -.2)+
   scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
   theme_bw()+
-  theme(panel.grid = element_blank())+
-  labs(x = "Distribuição de Variável Independente",
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
+  labs(x = "Distribuição de Variável Dependente",
        y = "%")
 #Controles Contagem
-dados %>% 
+
+
+df<- dados %>%
   #drop_na(controles) %>% 
   #filter(controles != "-") %>% 
   separate_rows(controles, sep = ",") %>% 
@@ -323,9 +403,36 @@ dados %>%
            str_squish(),
          n_controles = ifelse(!controles %in% c("-", "", "0", NA_character_), 1, 0)) %>% 
   filter(abordagem_metodologica == "inferencial") %>% 
-  group_by(titulo) %>% 
-  summarise(controles = sum(n_controles))
+  group_by(autor_n) %>% 
+  summarise(ano_artigo,
+            controles = sum(n_controles)) %>% 
+  unique() 
+df$autor_n <-c("Silva e Cervi (2014)",
+                          "Silva e Gonçalves (2020)",
+                          "Dias, Nossa e Monte-Mor (2018)",
+                          "Netto e Speck (2017)",
+                          "Heiler, Viana e Santos (2016)",
+                          "Lautenshlag (2019)",
+                          "Carlomagno e Codato (2015)",
+                          "Campos e Machado (2015)",
+                          "Rebello, Giora e Scapini, (2016)",
+                          "Resende, Schaefer, Epitacio e Barbosa (2020)",
+                          "Santos (2020)",
+                          "Corrêa e Santos (2020)"
+)
 
+df %>% 
+  ggplot(aes(y = reorder(autor_n, controles), x= controles))+
+  geom_col(fill = "#a83440")+
+  geom_vline(xintercept = mean(df$controles), linetype = "dashed", color = "red")+
+  geom_text(aes(label = controles), hjust = -.2)+
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
+  labs(x = "Número de Controles",
+       y = "")
 #Controles Wordcloud
 dados %>% 
   drop_na(controles) %>% 
@@ -349,7 +456,9 @@ dados %>%
   geom_text(aes(label = round(percent, 4)*100), vjust = -.2)+
   scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
   theme_bw()+
-  theme(panel.grid = element_blank())+
+  theme(panel.grid = element_blank(),
+        axis.title = element_text(size = 11, face = "bold"),
+        axis.text = element_text(size = 11, face = "bold"))+
   labs(x = "O Artigo Apresenta Hipótese?",
        y = "%")
 
@@ -367,24 +476,6 @@ dados %>%
   theme(plot.title = element_text(hjust = .5))
 
 
-dados %>% 
-  separate_rows(score_beta, sep = ",") %>% 
-  #separate_rows(desc_score_beta, sep = ",") %>% 
-  #separate_rows(tec_pesquisa, sep = ",") %>% 
-  #unique() %>% 
-  filter(str_match(tec_pesquisa, "regressão linear")
-         #,         !score_beta %in% c("", "-")
-         ) %>%
-  
-  mutate(score_beta = as.numeric(score_beta),
-         tec_pesquisa = str_squish(tec_pesquisa)) %>% View()
-  ggplot(aes(y= score_beta, 
-             x =ano_artigo))+
-  geom_point(color = "#a83440")+
-  facet_wrap(~tec_pesquisa,scales = "free",nrow = 2
-             )+
-  theme_bw()+
-  theme(panel.grid = element_blank())
 # Power effect
 
 dados %>% glimpse()
